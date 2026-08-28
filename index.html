@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>ピザミラノかるた ~あの頃のバイト~</title>
+<link href="https://fonts.googleapis.com/css2?family=Klee+One:wght@400;600&family=DotGothic16&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --washi:#f3ead9;
+    --washi-dark:#e6d8bd;
+    --red:#b3392c;
+    --red-deep:#7a2018;
+    --ink:#3b2a20;
+    --gold:#d9a441;
+    --night:#201613;
+    --olive:#7c8f4e;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{ margin:0; min-height:100%; background:var(--night); color:var(--ink);
+    font-family:'DotGothic16', monospace; display:flex; justify-content:center; }
+  #app{ width:100%; max-width:440px; min-height:100vh; padding:14px 14px 24px;
+    display:flex; flex-direction:column; align-items:center; gap:14px; }
+  h1{ font-family:'Klee One', sans-serif; font-weight:600; color:var(--gold); font-size:20px;
+      margin:6px 0 0; text-align:center; letter-spacing:1px; text-shadow:0 0 8px rgba(217,164,65,.35);}
+  .sub{ color:#cbb9a6; font-size:11px; text-align:center; margin-top:-8px;}
+  .screen{ width:100%; display:flex; flex-direction:column; align-items:center; gap:16px; }
+  .hidden{ display:none !important; }
+
+  /* ---- karuta card ---- */
+  .fuda{
+    position:relative; width:100%; background:var(--washi);
+    border:3px solid var(--red); border-radius:10px; padding:22px 16px;
+    box-shadow:0 6px 0 var(--red-deep), inset 0 0 0 2px var(--washi-dark);
+    text-align:center;
+  }
+  .fuda::before{
+    content:""; position:absolute; inset:6px; border:1px solid var(--red); border-radius:6px; opacity:.5; pointer-events:none;
+  }
+  .fuda .kaminoku-label, .fuda .shimonoku-label{ font-size:10px; color:var(--red); letter-spacing:2px; margin-bottom:6px; }
+  .fuda .reading{
+    font-family:'Klee One', sans-serif; font-weight:600; font-size:20px; line-height:1.6; color:var(--ink);
+  }
+  .progress{ color:#cbb9a6; font-size:11px; }
+
+  .choices{ width:100%; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .choice{
+    font-family:'Klee One', sans-serif; font-size:14px; font-weight:600;
+    background:var(--washi); border:2px solid var(--red); border-radius:8px;
+    padding:16px 8px; color:var(--ink); box-shadow:0 4px 0 var(--red-deep);
+    min-height:64px; display:flex; align-items:center; justify-content:center; text-align:center;
+  }
+  .choice:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--red-deep); }
+  .choice.wrong{ animation:shake .35s; }
+  .choice.correct{ background:var(--gold); border-color:var(--red-deep); }
+  @keyframes shake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-6px);} 75%{transform:translateX(6px);} }
+
+  .detail-box{ font-family:'Klee One', sans-serif; font-size:14px; line-height:1.7; color:var(--ink); }
+  .btn{
+    font-family:'DotGothic16', monospace; font-size:14px; background:var(--red); color:var(--washi);
+    border:none; border-radius:8px; padding:12px 20px; box-shadow:0 4px 0 var(--red-deep);
+  }
+  .btn:active{ transform:translateY(3px); box-shadow:0 1px 0 var(--red-deep); }
+  .btn.ghost{ background:var(--washi-dark); color:var(--ink); box-shadow:0 4px 0 #b3a37f; }
+  .btn.ghost:active{ box-shadow:0 1px 0 #b3a37f; }
+
+  .row{ display:flex; gap:10px; width:100%; justify-content:center; flex-wrap:wrap; }
+
+
+
+  /* log */
+  #log-list{ width:100%; display:flex; flex-direction:column; gap:8px; max-height:60vh; overflow-y:auto; }
+  .log-item{ background:var(--washi); border:2px solid var(--red); border-radius:8px; padding:10px 12px; text-align:left; }
+  .log-item .t{ font-family:'Klee One', sans-serif; font-weight:600; font-size:13px; color:var(--red-deep); }
+  .log-item .d{ font-size:11px; color:var(--ink); margin-top:3px; line-height:1.5; }
+  .log-item.locked{ opacity:.4; }
+
+  /* comments feed under reveal card */
+  .comments{ width:100%; display:flex; flex-direction:column; gap:6px; }
+
+  /* confetti burst on correct answer */
+  .confetti-piece{
+    position:fixed; width:8px; height:8px; border-radius:2px;
+    pointer-events:none; z-index:999;
+    animation: confetti-fly .9s ease-out forwards;
+  }
+  @keyframes confetti-fly{
+    0%{ transform:translate(0,0) rotate(0deg); opacity:1; }
+    100%{ transform:translate(var(--dx), var(--dy)) rotate(360deg); opacity:0; }
+  }
+  .comments .heading{ font-size:10px; color:#cbb9a6; letter-spacing:1px; padding-left:2px; }
+  .comment-item{
+    background:#2a1f1a; border:1px solid #4a3a30; border-radius:8px;
+    padding:8px 10px; text-align:left;
+  }
+  .comment-item .name{ font-size:9px; color:var(--gold); margin-bottom:2px; }
+  .comment-item .body{ font-family:'Klee One', sans-serif; font-size:13px; color:#f3ead9; line-height:1.5; }
+</style>
+</head>
+<body>
+<div id="app">
+  <h1>🀄 ピザミラノかるた 🍕</h1>
+  <div class="sub">~ あの頃のバイト ~</div>
+
+  <!-- TITLE -->
+  <div id="scr-title" class="screen">
+    <div class="fuda">
+      <div class="kaminoku-label">上の句</div>
+      <div class="reading">上の句が読まれます。続く下の句を4択から選んでね。</div>
+    </div>
+    <div class="row">
+      <button class="btn" id="btn-start">はじめる</button>
+      <button class="btn ghost" id="btn-log-1">📖 小ネタ図鑑</button>
+    </div>
+  </div>
+
+  <!-- ROUND -->
+  <div id="scr-round" class="screen hidden">
+    <div class="progress" id="progress-text"></div>
+    <div class="fuda">
+      <div class="kaminoku-label">上の句</div>
+      <div class="reading" id="reading-text"></div>
+    </div>
+    <div class="choices" id="choices"></div>
+  </div>
+
+  <!-- REVEAL -->
+  <div id="scr-reveal" class="screen hidden">
+    <div class="fuda">
+      <div class="shimonoku-label">下の句</div>
+      <div class="reading" id="reveal-title" style="font-size:16px; color:var(--red-deep); margin-bottom:8px;"></div>
+      <div class="detail-box" id="reveal-detail"></div>
+      <div id="reveal-rank" style="font-family:'DotGothic16', monospace; font-size:12px; color:var(--gold); margin-top:10px;"></div>
+    </div>
+    <div class="comments" id="comments-list"></div>
+    <button class="btn" id="btn-next">つぎの上の句へ</button>
+  </div>
+
+  <!-- END -->
+  <div id="scr-end" class="screen hidden">
+    <div class="fuda">
+      <div class="reading">全部の札、そろいました。<br>おつかれさまでした。</div>
+    </div>
+    <div class="row">
+      <button class="btn" id="btn-log-2">📖 小ネタ図鑑をみる</button>
+      <button class="btn ghost" id="btn-replay">もう一回シャッフルする</button>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div id="scr-log" class="screen hidden">
+    <div id="log-list"></div>
+    <button class="btn ghost" id="btn-log-back">もどる</button>
+  </div>
+
+  <div class="row">
+    <button class="btn ghost" id="btn-mute">🔊 BGM/SE</button>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ---------------- Sound: procedural chiptune BGM + SE ---------------- */
+const Sound = (function(){
+  let actx=null, muted=false, bgmOn=false, noiseBuffer=null;
+  let nextNoteTime=0, step=0, schedulerTimer=null;
+  const STEP_DUR = 60/152/2; // 152bpm, eighth notes -> upbeat/wakuwaku tempo
+
+  function ensure(){
+    if(!actx){
+      try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+      noiseBuffer = actx.createBuffer(1, actx.sampleRate*0.2, actx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for(let i=0;i<data.length;i++) data[i] = Math.random()*2-1;
+    }
+    if(actx.state==='suspended') actx.resume();
+  }
+  function tone(freq, time, dur, type, vol){
+    if(muted || !actx) return;
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type=type; o.frequency.setValueAtTime(freq, time);
+    g.gain.setValueAtTime(0.0001, time);
+    g.gain.exponentialRampToValueAtTime(Math.max(vol,0.0002), time+0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, time+dur);
+    o.connect(g); g.connect(actx.destination);
+    o.start(time); o.stop(time+dur+0.02);
+  }
+  function hat(time, vol){
+    if(muted || !actx) return;
+    const src = actx.createBufferSource();
+    src.buffer = noiseBuffer;
+    const hp = actx.createBiquadFilter(); hp.type='highpass'; hp.frequency.value=6000;
+    const g = actx.createGain();
+    g.gain.setValueAtTime(vol, time);
+    g.gain.exponentialRampToValueAtTime(0.0001, time+0.05);
+    src.connect(hp); hp.connect(g); g.connect(actx.destination);
+    src.start(time); src.stop(time+0.06);
+  }
+  function coinGet(time){
+    if(muted || !actx) return;
+    tone(988, time, 0.10, 'square', 0.08);
+    tone(1319, time+0.09, 0.20, 'square', 0.08);
+  }
+  // playful major-key loop, 16 steps (0 = rest)
+  const BASS = [130.81,0,130.81,0,164.81,0,130.81,0, 146.83,0,146.83,0,196.00,0,174.61,0];
+  const LEAD = [523.25,0,659.25,784.00, 0,659.25,880.00,0, 587.33,0,698.46,880.00, 0,987.77,880.00,0];
+  function schedulerLoop(){
+    if(!actx) return;
+    while(nextNoteTime < actx.currentTime + 0.12){
+      const s = step % 16;
+      if(BASS[s]) tone(BASS[s], nextNoteTime, STEP_DUR*0.85, 'square', 0.045);
+      if(LEAD[s]) tone(LEAD[s], nextNoteTime, STEP_DUR*0.75, 'triangle', 0.05);
+      if(s%2===1) hat(nextNoteTime, 0.02);
+      nextNoteTime += STEP_DUR;
+      step++;
+    }
+  }
+  function startBGM(){
+    ensure();
+    if(bgmOn || !actx) return;
+    bgmOn = true; step = 0; nextNoteTime = actx.currentTime + 0.05;
+    schedulerTimer = setInterval(schedulerLoop, 25);
+  }
+  function se(name){
+    ensure();
+    if(!actx) return;
+    const t = actx.currentTime;
+    if(name==='tap') tone(880, t, 0.05, 'square', 0.05);
+    else if(name==='correct') coinGet(t);
+    else if(name==='wrong') tone(150, t, 0.18, 'sawtooth', 0.05);
+    else if(name==='advance') tone(440, t, 0.06, 'triangle', 0.05);
+    else if(name==='complete'){ [523.25,659.25,784.0,1046.5].forEach((f,i)=> tone(f, t+i*0.11, 0.18, 'square', 0.07)); }
+  }
+  function toggleMute(){ muted=!muted; return muted; }
+  return {ensure, startBGM, se, toggleMute, isMuted:()=>muted};
+})();
+document.body.addEventListener('pointerdown', function initAudio(){
+  Sound.ensure(); Sound.startBGM();
+}, {once:true});
+document.getElementById('btn-mute').addEventListener('click', ()=>{
+  const m = Sound.toggleMute();
+  document.getElementById('btn-mute').textContent = m ? '🔇 BGM/SE' : '🔊 BGM/SE';
+});
+
+const DECK = [
+  {kami:"保温バッグが", shimo:"ボロボロ",
+   detail:"保温バッグはボロボロで、配達のたびに湯気とピザの匂いが漏れていた。",
+   comments:["あの匂い漏れ、まじで移動中ずっとしてたよな","夏場とか蒸し風呂状態だった"]},
+  {kami:"ブレーキ効かない", shimo:"35号",
+   detail:"35号はブレーキがほぼ効かなかった。廃材屋さん仕込みの一台ならでは。",
+   comments:["35号だけは絶対乗りたくなかったw","下り坂が恐怖でしかない"]},
+  {kami:"ボロボロの", shimo:"ポロシャツ",
+   detail:"支給された赤いポロシャツも、気づけばボロボロになっていた。",
+   comments:["穴あきポロで配達行くの地味に恥ずかしかった","新品支給されたことあったっけ？"]},
+  {kami:"流しで洗濯する", shimo:"ポロシャツ",
+   detail:"洗濯機なんて無いから、ポロシャツは厨房の流しで洗って、オーブンの横にかけて乾かしていた。",
+   comments:["厨房の流しで洗うの衛生的にどうなん","オーブンの横、地味に発想だよな"]},
+  {kami:"エアコンから飛び出してくる", shimo:"ゴキブリ",
+   detail:"夏、エアコンをつけた瞬間、小さいご来客がコロンと転がり出てきた。",
+   comments:["あれ最初見た時普通に叫んだ","エアコンの中住んでたんかな"]},
+  {kami:"前田", shimo:"チリチリ",
+   detail:"毎週日曜日に「チリチリ」を注文する常連の前田のおばちゃん。「前チリさん」と呼ばれていた。",
+   comments:["前チリさん久々に聞いたw","日曜のあの時間になると必ず電話来てたよな"]},
+  {kami:"ウエスニュー", shimo:"スキー",
+   detail:"常連の外国人のお客さんの本名。呼びにくいのに、なぜか耳に残っている。",
+   comments:["まさかの本名だったという衝撃","呼びにくいのに一発で覚えたよな"]},
+  {kami:"うーん", shimo:"のせすぎやねぇ",
+   detail:"コーンや玉ねぎを気前よく乗せると、こう言われて速攻減らされた。",
+   comments:["毎回言われるやつ","加減がわからんかった"]},
+  {kami:"アンチョビ", shimo:"ばぁさん",
+   detail:"常連さんのニックネーム。由来はもう誰も覚えていない。",
+   comments:["電話の声だけでわかったよな","常連さんの愛称多すぎ問題"]},
+  {kami:"店長がコーラ買いに行ったら", shimo:"ピザパーティー",
+   detail:"店長が席を外した隙に、みんなでこっそりピザパーティーが始まった。",
+   comments:["店長いない間の解放感すごかった","戻ってくるタイミングいつもヒヤヒヤ"]},
+  {kami:"パーティーでは", shimo:"クリスピーを食べる",
+   detail:"ピザだとバレやすいから、クリスピーの方がバレにくいと選ばれていた。",
+   comments:["なぜかクリスピーだけは別腹だった","バレにくさで選ぶ発想よ"]},
+  {kami:"ポテトの", shimo:"つまみ食い",
+   detail:"揚げたてのポテトは、こっそりつまみ食いされる運命にあった。",
+   comments:["揚げたて我慢できるわけない","バレたら怒られるやつ"]},
+  {kami:"タバコ吸いながら", shimo:"ピザこねる",
+   detail:"タバコを吸いながらピザ生地をこねるのが、店長の日常だった。",
+   comments:["今考えると衛生面やばいw","灰、絶対落ちてたよな"]},
+  {kami:"靴下のニオイがする", shimo:"イースト",
+   detail:"発酵中のイーストのニオイは、みんなから靴下呼ばわりされていた。",
+   comments:["最初何のニオイか分からんかった","慣れって怖い"]},
+  {kami:"トイレットペーパーがないなら", shimo:"手で拭く",
+   detail:"紙が無ければ手で拭く。店長はそれを地で行っていた。",
+   comments:["聞いた時ドン引きしたw","その後の手洗いの本気度よ"]},
+  {kami:"なんか怪しい", shimo:"チラシ屋さん",
+   detail:"新しいチラシの相談にやってくる、素性のよくわからないチラシ屋さん。いつも独特な提案をしてきた。",
+   comments:["名刺もらった記憶ないよな","結局何者だったんだろう"]},
+  {kami:"マジックで消した", shimo:"半額の文字",
+   detail:"長らく続けていた半額キャンペーンに指摘が入り、チラシの「半額」の文字をみんなで油性マジックで塗りつぶした。",
+   comments:["あの日は指も机も真っ黒だった","何万枚あったんだあれ"]},
+  {kami:"家に持って帰った", shimo:"大量のチラシ",
+   detail:"刷り上がった大量のチラシは配りきれず、何束もバイトが自宅に持ち帰る羽目になった。",
+   comments:["家がチラシだらけになったw","結局配りきれなかったよな"]},
+];
+DECK.forEach((c,i)=>{ c.id=i; c.unlocked=false; });
+
+// 下の句の選択肢に使うダミー(本物の下の句とは絶対に被らない、ネタバレ防止用)
+const DECOY_POOL = [
+  "そのまま伝説に","誰も気づかなかった","次の日には忘れてた","店長だけが知ってる",
+  "なぜか二倍に増えた","写真に撮られていた","誰のせいでもない","気づいたら直ってた",
+  "みんな見て見ぬふり","店の名物になった","今でも謎のまま","特に説明はなかった",
+  "そのうち慣れた","誰も驚かなかった","なんとなく納得した"
+];
+
+/* ---------------- state ---------------- */
+let queue = [];
+let current = null;
+let choicesLocked = false;
+const takenCount = ()=>DECK.filter(c=>c.unlocked).length;
+
+function show(id){
+  ["scr-title","scr-round","scr-reveal","scr-end","scr-log"].forEach(s=>{
+    document.getElementById(s).classList.toggle("hidden", s!==id);
+  });
+}
+
+function shuffle(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
+
+function startGame(){
+  DECK.forEach(c=>c.unlocked=false);
+  queue = shuffle(DECK.map(c=>c.id));
+  nextRound();
+}
+
+/* ---------------- 正解演出(紙吹雪 + スピード判定) ---------------- */
+function burstConfetti(){
+  const colors = ['#c0392b','#d9a441','#7c8f4e','#f3ead9'];
+  const wrap = document.getElementById('app');
+  const rect = wrap.getBoundingClientRect();
+  for(let i=0;i<26;i++){
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.background = colors[i%colors.length];
+    const angle = Math.random()*Math.PI*2;
+    const dist = 70+Math.random()*140;
+    p.style.setProperty('--dx', (Math.cos(angle)*dist)+'px');
+    p.style.setProperty('--dy', (Math.sin(angle)*dist-50)+'px');
+    p.style.left = (rect.left+rect.width/2)+'px';
+    p.style.top = (rect.top+rect.height*0.32)+'px';
+    document.body.appendChild(p);
+    setTimeout(()=>p.remove(), 900);
+  }
+}
+function speedRank(sec){
+  if(sec<2) return "⚡SSS!! 即答すごい";
+  if(sec<4) return "✨S! はやい";
+  if(sec<7) return "◎A まずまず";
+  return "☕B じっくり派";
+}
+let roundStartTime = 0;
+
+function nextRound(){
+  if(queue.length===0){ show("scr-end"); return; }
+  current = DECK[queue.shift()];
+  choicesLocked = false;
+  roundStartTime = performance.now();
+  document.getElementById("progress-text").textContent =
+    "取った札: " + takenCount() + " / " + DECK.length;
+  document.getElementById("reading-text").textContent = current.kami;
+
+  // 下の句の選択肢: 正解 + ダミープールから3つ(他カードの正解は絶対に混ぜない)
+  const decoys = shuffle(DECOY_POOL).slice(0,3);
+  const options = shuffle([current.shimo, ...decoys]);
+
+  const box = document.getElementById("choices");
+  box.innerHTML = "";
+  options.forEach(opt=>{
+    const b = document.createElement("button");
+    b.className = "choice";
+    b.textContent = opt;
+    b.addEventListener("click", ()=>onPick(opt, b));
+    box.appendChild(b);
+  });
+  show("scr-round");
+}
+
+function onPick(opt, el){
+  if(choicesLocked) return;
+  if(opt === current.shimo){
+    choicesLocked = true;
+    el.classList.add("correct");
+    current.unlocked = true;
+    Sound.se('correct');
+    burstConfetti();
+    const rank = speedRank((performance.now()-roundStartTime)/1000);
+    setTimeout(()=>{
+      document.getElementById("reveal-title").textContent = "「" + current.kami + " " + current.shimo + "」";
+      document.getElementById("reveal-detail").textContent = current.detail;
+      document.getElementById("reveal-rank").textContent = rank;
+      renderComments(current.comments);
+      show("scr-reveal");
+    }, 350);
+  } else {
+    el.classList.add("wrong");
+    Sound.se('wrong');
+    setTimeout(()=>el.classList.remove("wrong"), 350);
+  }
+}
+
+document.getElementById("btn-next").addEventListener("click", ()=>{
+  Sound.se('advance');
+  if(queue.length===0){ Sound.se('complete'); }
+  nextRound();
+});
+
+/* ---------------- log ---------------- */
+function renderComments(comments){
+  const box = document.getElementById("comments-list");
+  box.innerHTML = '<div class="heading">コメント一覧</div>';
+  (comments||[]).forEach(text=>{
+    const div = document.createElement("div");
+    div.className = "comment-item";
+    div.innerHTML = '<div class="name">元バイト</div><div class="body">'+text+'</div>';
+    box.appendChild(div);
+  });
+}
+function renderLog(){
+  const list = document.getElementById("log-list");
+  list.innerHTML = "";
+  DECK.forEach(c=>{
+    const div = document.createElement("div");
+    div.className = "log-item" + (c.unlocked ? "" : " locked");
+    if(c.unlocked){
+      div.innerHTML = '<div class="t">「'+c.kami+' '+c.shimo+'」</div><div class="d">'+c.detail+'</div>';
+    } else {
+      div.innerHTML = '<div class="t">？？？（未発見）</div>';
+    }
+    list.appendChild(div);
+  });
+}
+
+/* ---------------- nav buttons ---------------- */
+document.getElementById("btn-start").addEventListener("click", ()=>{ Sound.se('tap'); startGame(); });
+document.getElementById("btn-replay").addEventListener("click", ()=>{ Sound.se('tap'); startGame(); });
+document.getElementById("btn-log-1").addEventListener("click", ()=>{ Sound.se('tap'); renderLog(); show("scr-log"); });
+document.getElementById("btn-log-2").addEventListener("click", ()=>{ Sound.se('tap'); renderLog(); show("scr-log"); });
+document.getElementById("btn-log-back").addEventListener("click", ()=>{
+  Sound.se('tap');
+  show(takenCount() === DECK.length ? "scr-end" : (current ? "scr-round" : "scr-title"));
+});
+
+show("scr-title");
+})();
+</script>
+</body>
+</html>
