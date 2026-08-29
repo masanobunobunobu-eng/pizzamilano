@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>ピザミラノかるた ~あの頃のバイト~</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#e0362a">
+<link rel="icon" href="./icon-192.png">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ミラノかるた">
 <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Zen+Kaku+Gothic+New:wght@400;700;900&family=DotGothic16&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -606,6 +614,13 @@ document.getElementById("btn-log-back").addEventListener("click", ()=>{
 });
 
 show("scr-title");
+
+// PWA: サービスワーカー登録(オフライン対応・ホーム画面インストールに必要)
+if("serviceWorker" in navigator){
+  window.addEventListener("load", ()=>{
+    navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  });
+}
 })();
 </script>
 </body>
